@@ -8,6 +8,8 @@ from jinja2 import Environment, FileSystemLoader
 import pathlib
 import pdfkit
 
+some_new_variable_for_conflict = 0
+
 class DataSet:
     def __init__(self, file_name, vacancy_name):
         self.file_name = file_name
