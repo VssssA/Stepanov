@@ -4,19 +4,42 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Border, Side
 import matplotlib.pyplot as plt
 import numpy as np
-from jinja2 import Environment, FileSystemLoader
-import pathlib
-import pdfkit
 
 some_even_more_new_variable = 1
 
+
 class DataSet:
+    """
+    Класс для представления датасета
+    Attributes:
+        file_name(Any): Названия файла датасета
+        vacancy_name(Any): Название вакансии
+    """
     def __init__(self, file_name, vacancy_name):
+        """
+        Инициализирует объект DataSet, считает общую зарплату, считает среднее значение зарплаты,
+        считывает значение из файла, считает статистику, выводит значение получившиеся значения на консоль
+
+        Args:
+            file_name(Any): Названия файла датасета
+            vacancy_name(Any): Название вакансии
+        """
         self.file_name = file_name
         self.vacancy_name = vacancy_name
 
     @staticmethod
     def add_amount_salary(salary_dict, key, amount_of_salary):
+        """
+        Вычисляет общуюю сумму зарплат
+        :param
+            salary_dict: словарь зарплат
+        :param
+            key: ключ для зарплаты по вакансиям
+        :param
+            amount_of_salary: нужное количество добавки зарплаты
+        :return:
+            void
+        """
         if key in salary_dict:
             salary_dict[key] += amount_of_salary
         else:
@@ -24,12 +47,24 @@ class DataSet:
 
     @staticmethod
     def get_average_salary(salary_dict):
+        """
+        Считает словарь средних зарплат
+        :param
+            salary_dict: словарь зарплат
+        :return:
+            dict: словарь средних зарплат
+        """
         new_dictionary = {}
         for key, values in salary_dict.items():
             new_dictionary[key] = int(sum(values) / len(values))
         return new_dictionary
 
     def work_with_the_file(self):
+        """
+        Считывает значения с файла
+        :return:
+            void
+        """
         with open(self.file_name, mode='r', encoding='utf-8-sig') as file:
             reader_csv = csv.reader(file)
             header_of_the_file = next(reader_csv)
@@ -39,19 +74,34 @@ class DataSet:
                     yield dict(zip(header_of_the_file, row_in_file))
 
     def calculate_statistics(self):
+        """
+        Вычисляет статистику:
+            Динамика уровня зарплат по годам,
+            Динамика количества вакансий по годам,
+            Динамика уровня зарплат по годам для выбранной профессии,
+            Динамика количества вакансий по годам для выбранной професси,
+            Уровень зарплат по городам,
+            Доля вакансий по городам
+
+        :return:
+            void
+        """
         salary = {}
         salary_of_vacancy_name = {}
         salary_city = {}
         count_of_vacancies = 0
+
         for vacancies_dict in self.work_with_the_file():
-            vacancy = Vacancy(vacancies_dict)
+            vacancy = Salary(vacancies_dict)
             self.add_amount_salary(salary, vacancy.year, [vacancy.salary_average])
             if vacancy.name.find(self.vacancy_name) != -1:
                 self.add_amount_salary(salary_of_vacancy_name, vacancy.year, [vacancy.salary_average])
             self.add_amount_salary(salary_city, vacancy.area_name, [vacancy.salary_average])
             count_of_vacancies += 1
+
         vac_num_dict = dict([(key, len(value)) for key, value in salary.items()])
         vac_by_name = dict([(key, len(value)) for key, value in salary_of_vacancy_name.items()])
+
         if not salary_of_vacancy_name:
             salary_of_vacancy_name = dict([(key, [0]) for key, value in salary.items()])
             vac_by_name = dict([(key, 0) for key, value in vac_num_dict.items()])
@@ -59,6 +109,7 @@ class DataSet:
         average_salary_vac = self.get_average_salary(salary_of_vacancy_name)
         average_salary_city = self.get_average_salary(salary_city)
         quantity_dynamics = {}
+
         for year, salaries in salary_city.items():
             quantity_dynamics[year] = round(len(salaries) / count_of_vacancies, 4)
         quantity_dynamics = list(filter(lambda a: a[-1] >= 0.01,
@@ -76,6 +127,24 @@ class DataSet:
 
     @staticmethod
     def print_statistic(stats1, stats2, stats3, stats4, stats5, stats6):
+        """
+        Выводит значение статистики на консоль
+
+        :param
+            stats1: Динамика уровня зарплат по годам
+        :param
+            stats2: Динамика количества вакансий по годам
+        :param
+            stats3: Динамика уровня зарплат по годам для выбранной профессии
+        :param
+            stats4: Динамика количества вакансий по годам для выбранной профессии
+        :param
+            stats5: Уровень зарплат по городам (в порядке убывания)
+        :param
+            stats6: Доля вакансий по городам (в порядке убывания)
+        :return:
+            void
+        """
         print('Динамика уровня зарплат по годам: {0}'.format(stats1))
         print('Динамика количества вакансий по годам: {0}'.format(stats2))
         print('Динамика уровня зарплат по годам для выбранной профессии: {0}'.format(stats3))
@@ -85,7 +154,18 @@ class DataSet:
 
 
 class InputConnect:
+    """
+    Класс, который принимает входные данные.
+        Atributes:
+            file_name(str): название файла
+            vacancy_name(str): интирисующая профессия
+
+    """
     def __init__(self):
+        """
+            Инициализирует объект InputConnect, вызывает методы для подсчета статистики,
+            вызывает методы для вывода статистики на консоль,создает объект класса report
+        """
         self.file_name = input('Введите название файла: ')
         self.vacancy_name = input('Введите название профессии: ')
         flag = input("Введите метод представления данных: ")
@@ -120,7 +200,37 @@ class InputConnect:
 
 
 class Report:
+    """
+        Класс report создает таблицу excel с данными по интересующей профессии и графики со статистикой
+            Attributes:
+                wb(Workbook): лист excel
+                vacancy_name(Any): название профессии
+                stats1(Any): Динамика уровня зарплат по годам
+                stats2(Any): Динамика количества вакансий по годам
+                stats3(Any): Динамика уровня зарплат по годам для выбранной профессии
+                stats4(Any): Динамика количества вакансий по годам для выбранной профессии
+                stats5(Any): Уровень зарплат по городам (в порядке убывания)
+                stats6(Any): Доля вакансий по городам (в порядке убывания)
+
+    """
     def __init__(self, vacancy_name, stats1, stats2, stats3, stats4, stats5, stats6):
+        """
+            Инициализирует объект Report
+        :param
+            vacancy_name(Any): интересующая профессия
+        :param
+            stats1(Any): Динамика уровня зарплат по годам
+        :param
+            stats2(Any): Динамика количества вакансий по годам
+        :param
+            stats3(Any): Динамика уровня зарплат по годам для выбранной профессии
+        :param
+            stats4(Any): Динамика количества вакансий по годам для выбранной профессии
+        :param
+            stats5(Any): Уровень зарплат по городам (в порядке убывания)
+        :param
+            stats6(Any): Доля вакансий по городам (в порядке убывания)
+        """
         self.wb = Workbook()
         self.vacancy_name = vacancy_name
         self.stats1 = stats1
@@ -131,6 +241,11 @@ class Report:
         self.stats6 = stats6
 
     def generate_excel(self):
+        """
+            генерирует excel файл с данными по профессии
+        :return:
+            void
+        """
         ws1 = self.wb.active
         ws1.title = 'Статистика по годам'
         ws1.append(['Год',
@@ -199,6 +314,11 @@ class Report:
                 ws1[col + str(row + 1)].border = Border(left=thin, bottom=thin, right=thin, top=thin)
 
     def generate_image(self):
+        """
+            вызвает методы по созданию графиков, сохраняет полученное изображение в формате png
+        :return:
+            void
+        """
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
         self.first_diagram(ax1)
         self.second_diagram(ax2)
@@ -209,12 +329,24 @@ class Report:
         plt.savefig('graph.png')
 
     def round_diagram(self, ax4):
+        """
+        создает диаграмму - пирог доли вакансий по городам
+        :param ax4(axes): диаграмма - пирог
+        :return:
+            void
+        """
         ax4.set_title('Доля вакансий по городам', fontdict={'fontsize': 8})
         other = 1 - sum([value for value in self.stats6.values()])
         ax4.pie(list(self.stats6.values()) + [other], labels=list(self.stats6.keys()) + ['Другие'],
                 textprops={'fontsize': 6})
 
     def horizontal_diagram(self, ax3):
+        """
+        создает горизонтальную диаграмму уровень зарплат по городам
+        :param ax3(axes): горизонтальная диаграмма
+        :return:
+            void
+        """
         ax3.set_title('Уровень зарплат по городам', fontdict={'fontsize': 8})
         ax3.barh(list([str(a).replace(' ', '\n').replace('-', '-\n') for a in reversed(list(self.stats5.keys()))]),
                  list(reversed(list(self.stats5.values()))), color='blue', height=0.5, align='center')
@@ -223,6 +355,12 @@ class Report:
         ax3.grid(axis='x')
 
     def second_diagram(self, ax2):
+        """
+        создает  диаграмму, показывающую количество вакансий по годам
+        :param ax2(axes): диаграмма
+        :return:
+            void
+        """
         ax2.set_title('Количество вакансий по годам', fontdict={'fontsize': 8})
         bar1 = ax2.bar(np.array(list(self.stats2.keys())) - 0.4, self.stats2.values(), width=0.4)
         bar2 = ax2.bar(np.array(list(self.stats2.keys())), self.stats4.values(), width=0.4)
@@ -234,6 +372,12 @@ class Report:
         ax2.yaxis.set_tick_params(labelsize=8)
 
     def first_diagram(self, ax1):
+        """
+        создает горизонтальную диаграмму, показывающую уровень зарплат по годам
+        :param ax4(axes):диаграмма
+        :return:
+            void
+        """
         bar1 = ax1.bar(np.array(list(self.stats1.keys())) - 0.4, self.stats1.values(), width=0.4)
         bar2 = ax1.bar(np.array(list(self.stats1.keys())), self.stats3.values(), width=0.4)
         ax1.set_title('Уровень зарплат по годам', fontdict={'fontsize': 8})
@@ -247,7 +391,12 @@ class Report:
         self.wb.save(filename=filename)
 
 
-class Vacancy:
+class Salary:
+    """
+    Класс для представления зарплаты
+        Attributes:
+            vacancy(dict): интересующая вакансия
+    """
     currency_in_rub = {
         "AZN": 35.68,
         "BYR": 23.91,
@@ -262,6 +411,10 @@ class Vacancy:
     }
 
     def __init__(self, vacancy):
+        """
+        Инициализирует объект Salary, выполняет конвертацию валюты в рубли, считает среднее значение зарплаты в рублях
+        :param vacancy: интересующая вакансия
+        """
         self.name = vacancy['name']
         self.salary_from = int(float(vacancy['salary_from']))
         self.salary_to = int(float(vacancy['salary_to']))
