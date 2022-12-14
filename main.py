@@ -4,22 +4,29 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Border, Side
 import matplotlib.pyplot as plt
 import numpy as np
+from jinja2 import Environment, FileSystemLoader
+import pathlib
+import pdfkit
+import unittest
+import doctest
 
-some_even_more_new_variable = 1
-
-
+class DataSetTests(unittest.TestCase):
+    def test_get_statistics(self):
+        self.assertEqual(DataSet('file_name','vacancy_name').get_average_salary({'Аналитик': [100, 200, 300],
+                                                       'Программист': [400, 500, 600]}),
+                                                        {'Аналитик': 200,
+                                                         'Программист': 500})
 class DataSet:
     """
-    Класс для представления датасета
-    Attributes:
-        file_name(Any): Названия файла датасета
-        vacancy_name(Any): Название вакансии
-    """
+       Класс для представления датасета
+       Attributes:
+           file_name(Any): Названия файла датасета
+           vacancy_name(Any): Название вакансии
+       """
     def __init__(self, file_name, vacancy_name):
         """
         Инициализирует объект DataSet, считает общую зарплату, считает среднее значение зарплаты,
         считывает значение из файла, считает статистику, выводит значение получившиеся значения на консоль
-
         Args:
             file_name(Any): Названия файла датасета
             vacancy_name(Any): Название вакансии
@@ -30,16 +37,16 @@ class DataSet:
     @staticmethod
     def add_amount_salary(salary_dict, key, amount_of_salary):
         """
-        Вычисляет общуюю сумму зарплат
-        :param
-            salary_dict: словарь зарплат
-        :param
-            key: ключ для зарплаты по вакансиям
-        :param
-            amount_of_salary: нужное количество добавки зарплаты
-        :return:
-            void
-        """
+               Вычисляет общуюю сумму зарплат
+               :param
+                   salary_dict: словарь зарплат
+               :param
+                   key: ключ для зарплаты по вакансиям
+               :param
+                   amount_of_salary: нужное количество добавки зарплаты
+               :return:
+                   void
+               """
         if key in salary_dict:
             salary_dict[key] += amount_of_salary
         else:
@@ -50,8 +57,8 @@ class DataSet:
         """
         Считает словарь средних зарплат
         :param
-            salary_dict: словарь зарплат
-        :return:
+           salary_dict: словарь зарплат
+           :return:
             dict: словарь средних зарплат
         """
         new_dictionary = {}
@@ -65,6 +72,7 @@ class DataSet:
         :return:
             void
         """
+
         with open(self.file_name, mode='r', encoding='utf-8-sig') as file:
             reader_csv = csv.reader(file)
             header_of_the_file = next(reader_csv)
@@ -75,32 +83,26 @@ class DataSet:
 
     def calculate_statistics(self):
         """
-        Вычисляет статистику:
-            Динамика уровня зарплат по годам,
-            Динамика количества вакансий по годам,
-            Динамика уровня зарплат по годам для выбранной профессии,
-            Динамика количества вакансий по годам для выбранной професси,
-            Уровень зарплат по городам,
-            Доля вакансий по городам
-
-        :return:
-            void
-        """
+         Вычисляет статистику:
+             Динамика уровня зарплат по годам,
+             Динамика количества вакансий по годам,
+             Динамика уровня зарплат по годам для выбранной профессии,
+             Динамика количества вакансий по годам для выбранной професси,
+             Уровень зарплат по городам,
+             Доля вакансий по городам
+         :return:
+             void
+         """
         salary = {}
         salary_of_vacancy_name = {}
         salary_city = {}
         count_of_vacancies = 0
 
         for vacancies_dict in self.work_with_the_file():
-            vacancy = Salary(vacancies_dict)
-            self.add_amount_salary(salary, vacancy.year, [vacancy.salary_average])
-            if vacancy.name.find(self.vacancy_name) != -1:
-                self.add_amount_salary(salary_of_vacancy_name, vacancy.year, [vacancy.salary_average])
-            self.add_amount_salary(salary_city, vacancy.area_name, [vacancy.salary_average])
-            count_of_vacancies += 1
+            count_of_vacancies = self.count_vacancies(count_of_vacancies, salary, salary_city, salary_of_vacancy_name,
+                                                      vacancies_dict)
 
-        vac_num_dict = dict([(key, len(value)) for key, value in salary.items()])
-        vac_by_name = dict([(key, len(value)) for key, value in salary_of_vacancy_name.items()])
+        vac_by_name, vac_num_dict = self.count_vacancy_and_its_salary(salary, salary_of_vacancy_name)
 
         if not salary_of_vacancy_name:
             salary_of_vacancy_name = dict([(key, [0]) for key, value in salary.items()])
@@ -125,11 +127,24 @@ class DataSet:
 
         return average_salary, vac_num_dict, average_salary_vac, vac_by_name, average_salary_city, top_ten_quantity
 
+    def count_vacancy_and_its_salary(self, salary, salary_of_vacancy_name):
+        vac_num_dict = dict([(key, len(value)) for key, value in salary.items()])
+        vac_by_name = dict([(key, len(value)) for key, value in salary_of_vacancy_name.items()])
+        return vac_by_name, vac_num_dict
+
+    def count_vacancies(self, count_of_vacancies, salary, salary_city, salary_of_vacancy_name, vacancies_dict):
+        vacancy = Vacancy(vacancies_dict)
+        self.add_amount_salary(salary, vacancy.year, [vacancy.salary_average])
+        if vacancy.name.find(self.vacancy_name) != -1:
+            self.add_amount_salary(salary_of_vacancy_name, vacancy.year, [vacancy.salary_average])
+        self.add_amount_salary(salary_city, vacancy.area_name, [vacancy.salary_average])
+        count_of_vacancies += 1
+        return count_of_vacancies
+
     @staticmethod
     def print_statistic(stats1, stats2, stats3, stats4, stats5, stats6):
         """
         Выводит значение статистики на консоль
-
         :param
             stats1: Динамика уровня зарплат по годам
         :param
@@ -159,7 +174,6 @@ class InputConnect:
         Atributes:
             file_name(str): название файла
             vacancy_name(str): интирисующая профессия
-
     """
     def __init__(self):
         """
@@ -211,26 +225,25 @@ class Report:
                 stats4(Any): Динамика количества вакансий по годам для выбранной профессии
                 stats5(Any): Уровень зарплат по городам (в порядке убывания)
                 stats6(Any): Доля вакансий по городам (в порядке убывания)
-
     """
     def __init__(self, vacancy_name, stats1, stats2, stats3, stats4, stats5, stats6):
         """
-            Инициализирует объект Report
-        :param
-            vacancy_name(Any): интересующая профессия
-        :param
-            stats1(Any): Динамика уровня зарплат по годам
-        :param
-            stats2(Any): Динамика количества вакансий по годам
-        :param
-            stats3(Any): Динамика уровня зарплат по годам для выбранной профессии
-        :param
-            stats4(Any): Динамика количества вакансий по годам для выбранной профессии
-        :param
-            stats5(Any): Уровень зарплат по городам (в порядке убывания)
-        :param
-            stats6(Any): Доля вакансий по городам (в порядке убывания)
-        """
+                    Инициализирует объект Report
+                :param
+                    vacancy_name(Any): интересующая профессия
+                :param
+                    stats1(Any): Динамика уровня зарплат по годам
+                :param
+                    stats2(Any): Динамика количества вакансий по годам
+                :param
+                    stats3(Any): Динамика уровня зарплат по годам для выбранной профессии
+                :param
+                    stats4(Any): Динамика количества вакансий по годам для выбранной профессии
+                :param
+                    stats5(Any): Уровень зарплат по городам (в порядке убывания)
+                :param
+                    stats6(Any): Доля вакансий по городам (в порядке убывания)
+                """
         self.wb = Workbook()
         self.vacancy_name = vacancy_name
         self.stats1 = stats1
@@ -391,7 +404,7 @@ class Report:
         self.wb.save(filename=filename)
 
 
-class Salary:
+class Vacancy:
     """
     Класс для представления зарплаты
         Attributes:
